@@ -1,4 +1,7 @@
-from data.ips_list import IPS
+try:
+    from .data.ips_list import IPS
+except ImportError:
+    from data.ips_list import IPS
 from datetime import datetime, timedelta
 import json
 import random
@@ -355,38 +358,26 @@ def _generate_mitm_logs(base_time, source_ip, target_host, success_chance=0.5):
     return logs
 
 
-# def format_logs_for_terminal(alert: dict) -> str:
-#     """Format output from generate_mock_alert() for readable terminal display."""
-#     formatted_logs = []
-#     for idx, log in enumerate(alert.get("logs", []), start=1):
-#         entry = dict(log)
-#         timestamp = entry.get("timestamp")
-#         if isinstance(timestamp, datetime):
-#             entry["timestamp"] = timestamp.isoformat(sep=" ", timespec="seconds")
-#         entry["index"] = idx
-#         formatted_logs.append(entry)
+def format_logs_for_terminal(alert: dict) -> str:
+    """Format output from generate_mock_alert() for readable terminal display."""
+    formatted_logs = []
+    for idx, log in enumerate(alert.get("logs", []), start=1):
+        entry = dict(log)
+        timestamp = entry.get("timestamp")
+        if isinstance(timestamp, datetime):
+            entry["timestamp"] = timestamp.isoformat(sep=" ", timespec="seconds")
+        entry["index"] = idx
+        formatted_logs.append(entry)
 
-#     formatted_alert = {
-#         "source_ip": alert.get("source_ip"),
-#         "target_host": alert.get("target_host"),
-#         "log_count": alert.get("log_count"),
-#         "time_window_seconds": alert.get("time_window_seconds"),
-#         "logs": formatted_logs,
-#     }
+    formatted_alert = {
+        "source_ip": alert.get("source_ip"),
+        "target_host": alert.get("target_host"),
+        "log_count": alert.get("log_count"),
+        "time_window_seconds": alert.get("time_window_seconds"),
+        "logs": formatted_logs,
+    }
 
-#     return json.dumps(formatted_alert, indent=2)
+    return json.dumps(formatted_alert, indent=2)
 
 
-# print(format_logs_for_terminal(generate_mock_alert()))
-
-# generate_mock_alert_tool = FunctionTool(func=generate_mock_alert)
-
-# log_generator = Agent(
-#     name="LogGeneratorAgent",
-#     model="gemini-2.0-flash",
-#     instruction="""
-    
-#     """,
-#     tools=[generate_mock_alert_tool],
-#     output_key="generated_log"  # saves output to session.state["generated_log"]
-# )
+print(format_logs_for_terminal(generate_mock_alert()))
