@@ -8,8 +8,34 @@ from google.adk.sessions import InMemorySessionService
 from google.genai.types import Content, Part
 
 from agents.log_generator import generate_mock_alert
+
+from datetime import datetime
+import json
+
 # to test orchestrator receives generated_log from session state
 # run this in autoresponse dir: .venv\Scripts\python.exe -m unittest discover -v
+
+
+def format_logs_for_terminal(alert: dict) -> str:
+    """Format output from generate_mock_alert() for readable terminal display."""
+    formatted_logs = []
+    for idx, log in enumerate(alert.get("logs", []), start=1):
+        entry = dict(log)
+        timestamp = entry.get("timestamp")
+        if isinstance(timestamp, datetime):
+            entry["timestamp"] = timestamp.isoformat(sep=" ", timespec="seconds")
+        entry["index"] = idx
+        formatted_logs.append(entry)
+
+    formatted_alert = {
+        "source_ip": alert.get("source_ip"),
+        "target_host": alert.get("target_host"),
+        "log_count": alert.get("log_count"),
+        "time_window_seconds": alert.get("time_window_seconds"),
+        "logs": formatted_logs,
+    }
+
+    return json.dumps(formatted_alert, indent=2)
 
 def serialize_log(alert: dict) -> dict:
     serialized = alert.copy()
@@ -63,6 +89,10 @@ class OrchestratorLogHandoffTest(unittest.IsolatedAsyncioTestCase):
 
         print("\n[test] generating mock alert")
         alert = serialize_log(generate_mock_alert())
+        print(format_logs_for_terminal(alert))
+        print()
+        print()
+        
         print(
             "[test] generated alert summary:",
             {
