@@ -33,6 +33,11 @@ dist/
 *.swp
 *.swo
 
+# Local secrets
+.env
+*.env
+autoresponse/.env
+
 # OS files
 .DS_Store
 Thumbs.db

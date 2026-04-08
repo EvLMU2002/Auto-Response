@@ -380,4 +380,5 @@ def format_logs_for_terminal(alert: dict) -> str:
     return json.dumps(formatted_alert, indent=2)
 
 
-print(format_logs_for_terminal(generate_mock_alert()))
+if __name__ == "__main__":
+    print(format_logs_for_terminal(generate_mock_alert()))
