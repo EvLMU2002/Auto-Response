@@ -17,16 +17,16 @@ def generate_mock_alert() -> dict:
     target_host = f"prod-server-{random.randint(1, 10):02d}"
 
     scenarios = {
-        "brute_force":          _generate_brute_force_logs,
-        "port_scan":            _generate_port_scan_logs,
-        "malware":              _generate_malware_logs,
-        "ransomware":           _generate_ransomware_logs,
+        # "brute_force":          _generate_brute_force_logs,
+        # "port_scan":            _generate_port_scan_logs,
+        # "malware":              _generate_malware_logs,
+        # "ransomware":           _generate_ransomware_logs,
         "phishing":             _generate_phishing_logs,
-        "credential_stuffing":  _generate_credential_stuffing_logs,
-        "dos":                  _generate_dos_logs,
-        "sql_injection":        _generate_sql_injection_logs,
-        "xss":                  _generate_xss_logs,
-        "mitm":                 _generate_mitm_logs,
+        # "credential_stuffing":  _generate_credential_stuffing_logs,
+        # "dos":                  _generate_dos_logs,
+        # "sql_injection":        _generate_sql_injection_logs,
+        # "xss":                  _generate_xss_logs,
+        # "mitm":                 _generate_mitm_logs,
     }
 
     attack_scenario = random.choice(list(scenarios.keys()))

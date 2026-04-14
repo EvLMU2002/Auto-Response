@@ -1,5 +1,7 @@
 import json
+import ipaddress
 import os
+import time
 
 import httpx
 from dotenv import load_dotenv
@@ -7,6 +9,8 @@ from fastmcp import FastMCP
 
 mcp = FastMCP("ThreatIntelServer")
 load_dotenv()
+
+_CACHE: dict[str, tuple[float, dict]] = {}
 
 
 def _format_report(report: dict) -> dict:
@@ -22,6 +26,43 @@ def _format_report(report: dict) -> dict:
 @mcp.tool()
 async def check_abuseipdb(ip_address: str) -> dict:
     """Query AbuseIPDB for threat intelligence on an IP address."""
+    try:
+        ip_obj = ipaddress.ip_address(ip_address)
+    except ValueError:
+        return {
+            "error": "invalid_ip",
+            "message": f"Invalid IP address: {ip_address}",
+            "ip_address": ip_address,
+        }
+
+    # Reduce unnecessary external calls for IPs that are not globally routable threat intel targets.
+    if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_reserved or ip_obj.is_link_local:
+        return {
+            "ip_address": ip_address,
+            "is_public": False,
+            "ip_version": ip_obj.version,
+            "is_whitelisted": None,
+            "confidence_score": 0,
+            "country_code": None,
+            "country_name": None,
+            "usage_type": None,
+            "isp": None,
+            "domain": None,
+            "hostnames": [],
+            "is_tor": False,
+            "total_reports": 0,
+            "num_distinct_users": 0,
+            "last_reported_at": None,
+            "reports": [],
+            "threat_summary": "Lookup skipped for non-public IP",
+        }
+
+    ttl_seconds = int(os.getenv("THREAT_INTEL_CACHE_TTL_SECONDS", "600"))
+    now = time.time()
+    cached = _CACHE.get(ip_address)
+    if cached and cached[0] > now:
+        return cached[1]
+
     api_key = os.getenv("ABUSEIPDB_API_KEY")
     if not api_key:
         raise RuntimeError("ABUSEIPDB_API_KEY is not set. Add it to your environment or .env file.")
@@ -39,7 +80,7 @@ async def check_abuseipdb(ip_address: str) -> dict:
     print(json.dumps(response_payload, indent=2))
 
     data = response_payload.get("data", {})
-    return {
+    result = {
         "ip_address": data.get("ipAddress"),
         "is_public": data.get("isPublic"),
         "ip_version": data.get("ipVersion"),
@@ -57,6 +98,8 @@ async def check_abuseipdb(ip_address: str) -> dict:
         "last_reported_at": data.get("lastReportedAt"),
         "reports": [_format_report(report) for report in data.get("reports", [])],
     }
+    _CACHE[ip_address] = (now + ttl_seconds, result)
+    return result
 
 if __name__ == "__main__":
     mcp.run()

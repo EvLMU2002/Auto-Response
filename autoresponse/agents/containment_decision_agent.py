@@ -9,15 +9,24 @@ CONTAINMENT_TIERS = {
 
 containment_decision_agent = LlmAgent(
     name="ContainmentDecisionAgent",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     instruction=f"""
     You are a containment decision analyst for a security operations center.
 
-    Read the following keys from session state:
-    - generated_log       → original alert (source_ip, target_host, logs)
-    - triage_result       → severity, true/false positive, reasoning
-    - threat_intel_result → AbuseIPDB confidence score, Tor status, report count, whitelist status
-    - correlation_result  → historical patterns, previous attacks, confidence boost
+    Runtime context from session state (use this directly):
+    generated_log:
+    {{generated_log}}
+
+    triage_result:
+    {{triage_result}}
+
+    threat_intel_result:
+    {{threat_intel_result}}
+
+    correlation_result:
+    {{correlation_result}}
+
+    
 
     Pay close attention to AbuseIPDB whitelist status.
     Whitelisted netblocks are typically owned by trusted entities such as Google or Microsoft,
@@ -29,7 +38,7 @@ containment_decision_agent = LlmAgent(
     Use these containment tiers to guide your action selection:
     {CONTAINMENT_TIERS}
 
-    Step 1 — Determine base severity tier from triage_result:
+    Step 1 — Determine base severity tier from available triage-like evidence:
         LOW      → consider MONITOR or RATE_LIMIT
         MEDIUM   → consider BLOCK_PORT, BLOCK_IP, or DISABLE_SERVICE
         HIGH     → consider NETWORK_ISOLATE or PAUSE
@@ -51,7 +60,7 @@ containment_decision_agent = LlmAgent(
                     prefer the least disruptive justified action and mention the whitelist in your reasoning
 
     Step 3 — De-escalate if:
-        - Triage result is FALSE POSITIVE  → always use MONITOR only
+        - Available triage-like result indicates FALSE POSITIVE  → always use MONITOR only
         - Confidence is LOW                → drop one tier
 
     Step 4 — Select the most appropriate single action from the final tier.
@@ -65,9 +74,16 @@ containment_decision_agent = LlmAgent(
         MEDIUM → two of three sources agree
         LOW    → sources conflict or data is missing
 
+        Conservative fallback behavior:
+        - If evidence is weak or incomplete, choose MONITOR and LOW confidence.
+        - If source context exists and evidence is mixed, prefer least disruptive action in the selected tier.
+        - If no actionable context exists, return:
+            {{"error": "insufficient_context", "message": "No actionable session-state data was available"}}
+
     ── Output Format ─────────────────────────────────────────────────────────
 
     You MUST output ONLY a valid JSON object. No extra text, no markdown.
+    Do NOT wrap output in code fences.
     The JSON will be stored in session state under 'containment_decision'.
 
     {{
