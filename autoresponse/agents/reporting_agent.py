@@ -1,25 +1,53 @@
 import json
+import re
+import os
+from pathlib import Path
 
 from google.adk.agents import SequentialAgent
 from google.adk.agents.callback_context import CallbackContext
 from google.genai.types import Content, Part
 
 from tools.reporting_tool import save_incident_report
+from agents.data.historical_logs import HISTORICAL_LOGS
+
+
+def _persist_historical_logs():
+	"""Write updated HISTORICAL_LOGS back to the file."""
+	logs_file = Path(__file__).parent / "data" / "historical_logs.py"
+	
+	# Format as Python code
+	content = "HISTORICAL_LOGS = [\n"
+	for entry in HISTORICAL_LOGS:
+		content += f'    {{"ip": "{entry["ip"]}", "event": "{entry["event"]}", "occurrences": {entry["occurrences"]}}},\n'
+	content += "]\n"
+	
+	logs_file.write_text(content)
 
 
 def _safe_json_loads(value):
 	if isinstance(value, dict):
 		return value
-	if isinstance(value, str):
-		try:
-			return json.loads(value)
-		except json.JSONDecodeError:
-			return None
-	return None
+	if not isinstance(value, str):
+		return None
+
+	text = value.strip()
+	# Handle fenced JSON blocks like ```json ... ```
+	fenced_match = re.match(r"^```(?:json)?\s*(.*?)\s*```$", text, re.DOTALL | re.IGNORECASE)
+	if fenced_match:
+		text = fenced_match.group(1).strip()
+
+	try:
+		return json.loads(text)
+	except json.JSONDecodeError:
+		return None
 
 
 def deterministic_reporting_callback(callback_context: CallbackContext):
 	state = callback_context.state
+
+	
+
+
 	alert = _safe_json_loads(state.get("generated_log")) or {}
 	triage = _safe_json_loads(state.get("triage_result")) or {}
 	threat = _safe_json_loads(state.get("threat_intel_result")) or {}
@@ -29,6 +57,28 @@ def deterministic_reporting_callback(callback_context: CallbackContext):
 
 	source_ip = alert.get("source_ip", "unknown")
 	target_host = alert.get("target_host", "unknown-host")
+
+	# Save or update historical logs based on IP and event
+	if source_ip != "unknown":
+		attack_type = triage.get("attack_type", "unknown")
+		
+		# Look for exact match (same IP and same event)
+		exact_match = None
+		for entry in HISTORICAL_LOGS:
+			if entry.get("ip") == source_ip and entry.get("event") == attack_type:
+				exact_match = entry
+				break
+		
+		if exact_match:
+			# Increment occurrences for existing IP+event combination
+			exact_match["occurrences"] = exact_match.get("occurrences", 1) + 1
+		else:
+			# New IP or new event for existing IP
+			new_entry = {"ip": source_ip, "event": attack_type, "occurrences": 1}
+			HISTORICAL_LOGS.append(new_entry)
+		
+		# Persist changes back to file
+		_persist_historical_logs()
 	incident_id = f"{str(source_ip).replace('.', '-')}_{str(target_host).replace(' ', '-')[:20]}"
 
 	logs = alert.get("logs", []) if isinstance(alert.get("logs", []), list) else []

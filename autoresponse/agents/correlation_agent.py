@@ -46,7 +46,6 @@ def deterministic_correlation_callback(callback_context: CallbackContext):
             "previously_seen": False,
             "times_seen": 0,
             "known_attack_types": [],
-            "last_seen_days_ago": None,
             "pattern_detected": "no historical match",
             "confidence_boost": "LOW",
         }
@@ -54,15 +53,10 @@ def deterministic_correlation_callback(callback_context: CallbackContext):
         known_attack_types = sorted(
             {str(entry.get("event")) for entry in matches if entry.get("event")}
         )
-        min_days = min(
-            [int(entry.get("days_ago", 0)) for entry in matches if entry.get("days_ago") is not None],
-            default=None,
-        )
         result = {
             "previously_seen": True,
             "times_seen": len(matches),
             "known_attack_types": known_attack_types,
-            "last_seen_days_ago": min_days,
             "pattern_detected": "repeat offender" if len(matches) > 1 else "single prior observation",
             "confidence_boost": "HIGH" if len(matches) > 1 else "MEDIUM",
         }
