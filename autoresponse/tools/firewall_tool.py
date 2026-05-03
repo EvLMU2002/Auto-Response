@@ -1,27 +1,33 @@
 from google.adk.tools import FunctionTool
 from datetime import datetime
+import json
+from pathlib import Path
 
-# Mock firewall state
-FIREWALL_STATE = {
-    "blocked_ips":       [],
-    "blocked_ports":     [],
-    "rate_limited_ips":  [],
-    "isolated_hosts":    [],
-    "stopped_services":  [],
-    "paused_processes":  [],
-    "snapshots":         [],
-    "quarantined_hosts": [],
-    "network_stopped":   False,
-    "action_log":        []
-}
+# Load persistent firewall state
+try:
+    from agents.data.firewall_state import FIREWALL_STATE
+except ImportError:
+    FIREWALL_STATE = {
+        "blocked_ips":       [],
+        "blocked_ports":     [],
+        "rate_limited_ips":  [],
+        "isolated_hosts":    [],
+        "stopped_services":  [],
+        "paused_processes":  [],
+        "snapshots":         [],
+        "quarantined_hosts": [],
+        "network_stopped_count": 0
+    }
 
-def _log_action(action: str, target: str, result: str):
-    FIREWALL_STATE["action_log"].append({
-        "timestamp": datetime.now().isoformat(),
-        "action":    action,
-        "target":    target,
-        "result":    result
-    })
+def _persist_firewall_state():
+    """Write updated FIREWALL_STATE back to the file."""
+    state_file = Path(__file__).parent.parent / "agents" / "data" / "firewall_state.py"
+    
+    # Format as Python code
+    content = "# Auto-generated firewall state\n# Do not edit manually unless you know what you're doing.\n\n"
+    content += f"FIREWALL_STATE = {json.dumps(FIREWALL_STATE, indent=4)}\n"
+    
+    state_file.write_text(content)
 
 def execute_containment(action: str, target: str, reason: str) -> dict:
     """
@@ -80,7 +86,7 @@ def execute_containment(action: str, target: str, reason: str) -> dict:
             f"Host {target} moved to isolated network"
         ),
         "STOP": (
-            lambda: FIREWALL_STATE.update({"network_stopped": True}),
+            lambda: FIREWALL_STATE.update({"network_stopped_count": FIREWALL_STATE.get("network_stopped_count", 0) + 1}),
             f"Full network stop initiated — all traffic halted"
         ),
     }
@@ -94,7 +100,7 @@ def execute_containment(action: str, target: str, reason: str) -> dict:
 
     fn, result_msg = action_map[action]
     fn()
-    _log_action(action, target, result_msg)
+    _persist_firewall_state()
 
     return {
         "success":        True,
@@ -108,7 +114,7 @@ def execute_containment(action: str, target: str, reason: str) -> dict:
             "blocked_ports":     FIREWALL_STATE["blocked_ports"],
             "rate_limited_ips":  FIREWALL_STATE["rate_limited_ips"],
             "isolated_hosts":    FIREWALL_STATE["isolated_hosts"],
-            "network_stopped":   FIREWALL_STATE["network_stopped"],
+            "network_stopped_count": FIREWALL_STATE["network_stopped_count"],
         }
     }
 

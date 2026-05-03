@@ -1,4 +1,4 @@
-# Auto-Response (ADK Web Enabled)
+# Auto-Response
 
 This project now includes an ADK Web entrypoint so you can run the orchestration pipeline in the browser.
 
@@ -38,10 +38,10 @@ GEMINI_API_KEY=your_key_here
 adk web .
 ```
 
-4. In the ADK Web UI, choose `security_mas`.
+4. In the ADK Web UI, choose the `security_mas` entrypoint for Auto Response.
 
 ## How This Works in Web Sessions
 
-- `security_mas/agent.py` exposes `root_agent` for ADK discovery.
+- `security_mas/agent.py` exposes Auto Response `root_agent` for ADK discovery.
 - `agents/alert_seed_agent.py` ensures `generated_log` exists in session state.
 - If no alert is present, a new mock alert is generated automatically before triage.

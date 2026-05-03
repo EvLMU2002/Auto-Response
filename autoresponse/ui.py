@@ -11,7 +11,7 @@ from tkinter import ttk
 class AutoResponseUI:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("Security MAS Auto Response")
+        self.root.title("Auto Response")
         self.root.geometry("1280x720")
         self.root.minsize(1000, 600)
 
@@ -209,7 +209,7 @@ class AutoResponseUI:
 
         ips_title = tk.Label(
             ips_frame,
-            text="IP Actions",
+            text="Containment State",
             bg=self.panel_bg,
             fg=self.panel_text,
             font=("Segoe UI", 12, "bold"),
@@ -239,8 +239,8 @@ class AutoResponseUI:
         )
         self.ip_list.configure(yscrollcommand=ips_scroll.set)
 
-        self.ip_list.grid(row=1, column=0, sticky="nsew")
-        ips_scroll.grid(row=1, column=1, sticky="ns")
+        self.ip_list.grid(row=1, column=0, sticky="nsew", padx=8, pady=(0, 8))
+        ips_scroll.grid(row=1, column=1, sticky="ns", pady=(0, 8))
 
     def _start_pipeline(self) -> None:
         if self.process and self.process.poll() is None:
@@ -312,7 +312,7 @@ class AutoResponseUI:
         latest_report = self._latest_report_file()
         if latest_report is None:
             self._set_report_text("No incident reports found yet. Run the pipeline to generate one.\n")
-            self._set_ip_entries([])
+            self._set_firewall_state_entries([])
             self.root.after(2000, self._refresh_report_views)
             return
 
@@ -320,14 +320,14 @@ class AutoResponseUI:
             latest_content = latest_report.read_text(encoding="utf-8")
         except OSError as exc:
             self._set_report_text(f"Failed to read latest report: {exc}\n")
-            self._set_ip_entries([])
+            self._set_firewall_state_entries([])
             self.root.after(2000, self._refresh_report_views)
             return
 
         self._set_report_text(latest_content)
 
-        entries = self._collect_ip_action_entries()
-        self._set_ip_entries(entries)
+        entries = self._collect_firewall_state_entries()
+        self._set_firewall_state_entries(entries)
         self.root.after(2000, self._refresh_report_views)
 
     def _set_report_text(self, text: str) -> None:
@@ -345,36 +345,59 @@ class AutoResponseUI:
 
         self.report_text.config(state="disabled")
 
-    def _collect_ip_action_entries(self) -> list[str]:
-        if not self.reports_dir.exists():
-            return []
+    def _collect_firewall_state_entries(self) -> list[str]:
+        firewall_state_file = self.project_root / "agents" / "data" / "firewall_state.py"
+        if not firewall_state_file.exists():
+            return ["Firewall state file not found."]
 
-        report_files = sorted(
-            self.reports_dir.glob("incident_*.txt"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
+        try:
+            # Execute the file in a controlled namespace to extract FIREWALL_STATE
+            namespace = {}
+            with open(firewall_state_file, 'r', encoding='utf-8') as f:
+                exec(f.read(), namespace)
+            
+            firewall_state = namespace.get('FIREWALL_STATE')
+            if firewall_state is None:
+                return ["Could not parse firewall state."]
 
-        entries: list[str] = []
-        for report_file in report_files:
-            try:
-                content = report_file.read_text(encoding="utf-8")
-            except OSError:
-                continue
+            entries = []
+            # Display each section with IPs
+            sections = [
+                ("Blocked IPs", firewall_state.get("blocked_ips", [])),
+                ("Blocked Ports", firewall_state.get("blocked_ports", [])),
+                ("Rate Limited IPs", firewall_state.get("rate_limited_ips", [])),
+                ("Isolated Hosts", firewall_state.get("isolated_hosts", [])),
+                ("Stopped Services", firewall_state.get("stopped_services", [])),
+                ("Paused Processes", firewall_state.get("paused_processes", [])),
+                ("Quarantined Hosts", firewall_state.get("quarantined_hosts", [])),
+            ]
+            
+            network_stopped_count = firewall_state.get("network_stopped_count", 0)
+            if network_stopped_count > 0:
+                sections.append(("Network Stopped", [f"Count: {network_stopped_count}"]))
+            
+            snapshots = firewall_state.get("snapshots", [])
+            if snapshots:
+                sections.append(("Snapshots", [f"{s['target']} ({s['timestamp']})" for s in snapshots]))
 
-            ip_match = re.search(r"source_ip=([^;\n]+)", content)
-            action_match = re.search(r"decision_action=([^;\n]+)", content)
+            for section_name, items in sections:
+                if items:
+                    entries.append(f"{section_name}:")
+                    for item in items[-5:]:  # Show only the most recent 5 items
+                        entries.append(f"  {item}")
+                    entries.append("")  # Empty line between sections
 
-            source_ip = ip_match.group(1).strip() if ip_match else "unknown"
-            action = action_match.group(1).strip() if action_match else "UNKNOWN_ACTION"
-            entries.append(f"({source_ip} - {action})")
+            return entries if entries else ["No containment data."]
+
+        except Exception as exc:
+            return [f"Error reading containment state: {exc}"]
 
         return entries
 
-    def _set_ip_entries(self, entries: list[str]) -> None:
+    def _set_firewall_state_entries(self, entries: list[str]) -> None:
         self.ip_list.delete(0, "end")
         if not entries:
-            self.ip_list.insert("end", "No IP actions found yet.")
+            self.ip_list.insert("end", "No containment data.")
             return
 
         for entry in entries:

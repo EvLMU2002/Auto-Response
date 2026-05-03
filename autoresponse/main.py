@@ -33,7 +33,7 @@ async def run_security_pipeline():
 
     session_service = InMemorySessionService()
 
-    APP_NAME = "security_mas"
+    APP_NAME = "auto_response"
     USER_ID  = "analyst_1"
 
     # ── Step 1: Generate alert from log generator program ─────────────────

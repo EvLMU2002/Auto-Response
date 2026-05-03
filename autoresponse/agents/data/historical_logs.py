@@ -8,4 +8,11 @@ HISTORICAL_LOGS = [
     {"ip": "91.92.21.152", "event": "xss", "occurrences": 1},
     {"ip": "103.26.86.197", "event": "xss", "occurrences": 1},
     {"ip": "71.63.137.225", "event": "ransomware", "occurrences": 1},
+    {"ip": "175.203.138.160", "event": "credential_stuffing", "occurrences": 1},
+    {"ip": "64.62.156.215", "event": "dos", "occurrences": 1},
+    {"ip": "43.240.15.138", "event": "malware", "occurrences": 1},
+    {"ip": "206.189.123.199", "event": "brute_force", "occurrences": 1},
+    {"ip": "45.153.34.116", "event": "malware", "occurrences": 1},
+    {"ip": "47.250.116.156", "event": "malware", "occurrences": 1},
+    {"ip": "45.131.195.102", "event": "sql_injection", "occurrences": 1},
 ]
