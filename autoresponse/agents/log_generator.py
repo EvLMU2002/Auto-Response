@@ -1,7 +1,9 @@
 try:
     from .data.ips_list import IPS
+    from .data.safe_ips_list import SAFE_IPS
 except ImportError:
     from data.ips_list import IPS
+    from data.safe_ips_list import SAFE_IPS
 from datetime import datetime, timedelta
 import json
 import random
@@ -13,7 +15,8 @@ def generate_mock_alert() -> dict:
     The downstream triage agent must determine severity and attack type.
     """
     base_time = datetime.now()
-    source_ip = random.choice(IPS)
+    false_positive_mode = random.random() < 0.2
+    source_ip = random.choice(SAFE_IPS if false_positive_mode else IPS)
     target_host = f"prod-server-{random.randint(1, 10):02d}"
 
     scenarios = {
@@ -31,7 +34,10 @@ def generate_mock_alert() -> dict:
 
     attack_scenario = random.choice(list(scenarios.keys()))
     log_fn = scenarios[attack_scenario]
-    logs = log_fn(base_time, source_ip, target_host)
+    if false_positive_mode:
+        logs = _generate_false_positive_logs(base_time, attack_scenario, source_ip, target_host)
+    else:
+        logs = log_fn(base_time, source_ip, target_host)
 
     return {
         "source_ip": source_ip,
@@ -40,6 +46,112 @@ def generate_mock_alert() -> dict:
         "time_window_seconds": (logs[-1]["timestamp"] - logs[0]["timestamp"]).seconds if len(logs) > 1 else 0,
         "logs": logs
     }
+
+
+def _generate_false_positive_logs(base_time, scenario, source_ip, target_host):
+    """Generate low-volume false-positive logs that keep the original log style."""
+    logs = []
+
+    if scenario == "brute_force":
+        user = random.choice(["admin", "ubuntu", "user"])
+        logs.append({
+            "timestamp": base_time,
+            "source_ip": source_ip,
+            "target_host": target_host,
+            "event": "AUTH_SUCCESS",
+            "port": 22,
+            "protocol": "SSH",
+            "user_attempted": user,
+            "message": f"Accepted password for {user} from {source_ip} port {random.randint(40000,65000)} ssh2 (post-rotation validation)",
+        })
+        return logs
+
+    if scenario == "port_scan":
+        for i, port in enumerate(random.sample([22, 80, 443, 3389, 5432], 3)):
+            logs.append({
+                "timestamp": base_time + timedelta(seconds=i * 2),
+                "source_ip": source_ip,
+                "target_host": target_host,
+                "event": "CONNECTION_ATTEMPT",
+                "port": port,
+                "protocol": "TCP",
+                "status": random.choice(["REJECTED", "TIMEOUT", "OPEN"]),
+                "message": f"TCP connection attempt from approved scanner {source_ip} to port {port} during scheduled assessment",
+            })
+        return logs
+
+    if scenario == "malware":
+        events = [
+            ("PROCESS_SPAWN", "Maintenance process launched by endpoint management agent"),
+            ("FILE_WRITE", "File written to: C:\\Windows\\Temp\\maint_agent.exe (signed package)"),
+            ("FILE_EXEC", "Execution of signed maintenance binary: maint_agent.exe"),
+        ]
+    elif scenario == "ransomware":
+        events = [
+            ("FILE_WRITE", "Bulk file rename activity observed during backup recovery verification"),
+            ("VOLUME_DELETE", "Shadow copy lifecycle operation observed during DR test workflow"),
+            ("FILE_RESTORE", "Recovery validation completed for test restore point"),
+        ]
+    elif scenario == "phishing":
+        events = [
+            ("EMAIL_RECEIVED", "Security awareness simulation email delivered to user mailbox"),
+            ("URL_CLICK", "User clicked sanctioned training link from simulation campaign"),
+            ("HTTP_REQUEST", "GET request to approved awareness training domain"),
+        ]
+    elif scenario == "credential_stuffing":
+        events = [
+            ("AUTH_FAILURE", "Failed login from mobile client during SSO outage retry window"),
+            ("AUTH_FAILURE", "Failed login from mobile client during SSO outage retry window"),
+            ("AUTH_SUCCESS", "Successful login after SSO service recovered"),
+        ]
+    elif scenario == "dos":
+        for i in range(20):
+            logs.append({
+                "timestamp": base_time + timedelta(seconds=i * 0.1),
+                "source_ip": source_ip,
+                "target_host": target_host,
+                "event": "HTTP_FLOOD",
+                "port": 80,
+                "protocol": "HTTP",
+                "status": random.choice(["200", "302", "503"]),
+                "message": "Synthetic load-test request from approved monitoring profile",
+            })
+        return logs
+    elif scenario == "sql_injection":
+        events = [
+            ("n/a", "Input validation test string detected in QA automation request"),
+            ("n/a", "Parameter fuzzing pattern detected during approved test suite"),
+            ("n/a", "Request inspection flagged SQL-like sequence from QA runner"),
+        ]
+    elif scenario == "xss":
+        events = [
+            ("n/a", "Script-like payload submitted by approved web security scanner"),
+            ("n/a", "Input sanitization test payload detected in form submission"),
+            ("n/a", "Output-encoding validation payload observed in test session"),
+        ]
+    elif scenario == "mitm":
+        events = [
+            ("CERT_ANOMALY", "TLS certificate chain changed during corporate inspection proxy failover"),
+            ("ARP_SPOOF", "ARP table churn observed during network gateway failover event"),
+            ("ALERT_GENERATED", "Network trust anomaly cleared after failover stabilization"),
+        ]
+    else:
+        events = [
+            ("ALERT_GENERATED", "Operational anomaly flagged for review"),
+        ]
+
+    for i, (event_type, msg) in enumerate(events):
+        logs.append({
+            "timestamp": base_time + timedelta(seconds=i * random.uniform(2, 8)),
+            "source_ip": source_ip,
+            "target_host": target_host,
+            "event": event_type,
+            "port": random.choice([80, 443, 53, 22]),
+            "protocol": random.choice(["HTTP", "HTTPS", "DNS", "SSH", "N/A"]),
+            "message": msg,
+        })
+
+    return logs
 
 
 

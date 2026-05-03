@@ -1,5 +1,6 @@
 from google.adk.agents import ParallelAgent, SequentialAgent
 
+from agents.alert_seed_agent import alert_seed_agent
 from agents.correlation_agent import correlation_agent
 from agents.containment_decision_agent import containment_decision_agent
 from agents.containment_execution_agent import containment_execution_agent
@@ -23,10 +24,11 @@ parallel_containment = ParallelAgent(
 orchestrator = SequentialAgent(
     name="OrchestratorAgent",
     description=(
-        "Runs triage, correlation, and threat intel in parallel, makes a containment decision, "
+        "Seeds incident state, runs triage, correlation, and threat intel in parallel, makes a containment decision, "
         "then executes containment and reporting in parallel."
     ),
     sub_agents=[
+        alert_seed_agent,
         parallel_analysis,
         containment_decision_agent,
         parallel_containment,

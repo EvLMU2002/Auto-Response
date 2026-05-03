@@ -19,7 +19,7 @@ triage_agent = LlmAgent(
   
 
     Analyze it and determine:
-    - Severity level (LOW / MEDIUM / HIGH / CRITICAL)
+    - Severity level (NONE / LOW / MEDIUM / HIGH / CRITICAL)
     - True Positive or False Positive
     - Attack type: Based on your analysis, categorize as one of: brute_force, port_scan, malware, ransomware, phishing, credential_stuffing, dos, sql_injection, xss, mitm, or other if none fit.
 
@@ -32,8 +32,8 @@ triage_agent = LlmAgent(
 
         JSON schema:
         {{
-            "severity": "LOW|MEDIUM|HIGH|CRITICAL",
-            "true_positive": true,
+            "severity": "NONE|LOW|MEDIUM|HIGH|CRITICAL",
+            "true_positive": true|false,
             "attack_type": "brute_force|port_scan|malware|ransomware|phishing|credential_stuffing|dos|sql_injection|xss|mitm|other",
             "analysis": "1-3 concise sentences"
         }}

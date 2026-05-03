@@ -1,6 +1,7 @@
 from google.adk.agents import LlmAgent
 
 CONTAINMENT_TIERS = {
+    "NONE":     ["NO_ACTION"],
     "LOW":      ["MONITOR", "RATE_LIMIT"],
     "MEDIUM":   ["BLOCK_PORT", "BLOCK_IP", "DISABLE_SERVICE"],
     "HIGH":     ["NETWORK_ISOLATE", "PAUSE"],
@@ -39,6 +40,7 @@ containment_decision_agent = LlmAgent(
     {CONTAINMENT_TIERS}
 
     Step 1 — Determine base severity tier from available triage-like evidence:
+        NONE     → always use NO_ACTION (stop here, skip Steps 2 and 3)
         LOW      → consider MONITOR or RATE_LIMIT
         MEDIUM   → consider BLOCK_PORT, BLOCK_IP, or DISABLE_SERVICE
         HIGH     → consider NETWORK_ISOLATE or PAUSE
@@ -47,8 +49,6 @@ containment_decision_agent = LlmAgent(
     Step 2 — Escalate if any of the following are true:
         - AbuseIPDB confidence score > 80  → escalate one tier
         - IP is a Tor exit node            → escalate one tier
-        - Multi-stage reconnaissance
-          pattern detected                 → escalate one tier
         - Previously seen IP with known
           attack history                   → escalate one tier
 
@@ -60,6 +60,7 @@ containment_decision_agent = LlmAgent(
                     prefer the least disruptive justified action and mention the whitelist in your reasoning
 
     Step 3 — De-escalate if:
+        - Triage severity is NONE                              → always use NO_ACTION
         - Available triage-like result indicates FALSE POSITIVE  → always use MONITOR only
         - Confidence is LOW                → drop one tier
 
@@ -94,6 +95,7 @@ containment_decision_agent = LlmAgent(
         "severity_tier":           "<LOW|MEDIUM|HIGH|CRITICAL>",
         "escalation_factors":      ["<factor1>", "<factor2>"],
         "base_severity":           "<original severity from triage before escalation>"
+        "seen_before":             true|false, -> based on correlation_result
     }}
     """,
     output_key="containment_decision"

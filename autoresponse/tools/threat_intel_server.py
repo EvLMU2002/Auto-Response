@@ -76,8 +76,8 @@ async def check_abuseipdb(ip_address: str) -> dict:
     response.raise_for_status()
 
     response_payload = response.json()
-    print("[threat_intel_server] AbuseIPDB raw response:")
-    print(json.dumps(response_payload, indent=2))
+    # print("[threat_intel_server] AbuseIPDB raw response:")
+    # print(json.dumps(response_payload, indent=2))
 
     data = response_payload.get("data", {})
     result = {

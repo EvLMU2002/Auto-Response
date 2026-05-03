@@ -59,7 +59,8 @@ def deterministic_reporting_callback(callback_context: CallbackContext):
 	target_host = alert.get("target_host", "unknown-host")
 
 	# Save or update historical logs based on IP and event
-	if source_ip != "unknown":
+	severity = triage.get("severity", "").upper()
+	if source_ip != "unknown" and severity != "NONE":
 		attack_type = triage.get("attack_type", "unknown")
 		
 		# Look for exact match (same IP and same event)
@@ -120,11 +121,7 @@ def deterministic_reporting_callback(callback_context: CallbackContext):
 		f"execution_result={execution.get('result', execution.get('error', 'N/A'))}"
 	)
 
-	follow_up_steps = (
-		"1) Validate indicators on affected host. "
-		"2) Hunt for lateral movement. "
-		"3) Tune detection rules from this incident."
-	)
+	decision_reasoning = decision.get("reason", "No reasoning provided.")
 
 	result = save_incident_report(
 		incident_id=incident_id,
@@ -134,7 +131,7 @@ def deterministic_reporting_callback(callback_context: CallbackContext):
 		log_correlation=log_correlation,
 		geolocation=geolocation,
 		containment_actions=containment_actions,
-		follow_up_steps=follow_up_steps,
+		decision_reasoning=decision_reasoning,
 	)
 	callback_context.state["report_result"] = result
 	return Content(parts=[Part(text=json.dumps(result))])
