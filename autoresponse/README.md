@@ -24,7 +24,7 @@ UI layout:
 pip install -e .
 ```
 
-2. Set your API key in `.env` (either works):
+2. Set your API key in a `.env` (either works):
 
 ```env
 GOOGLE_API_KEY=your_key_here
